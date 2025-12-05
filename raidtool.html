@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Raid Performance Analyzer</title>
+
+  <!-- Tailwind CSS (CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ink: {
+              50:'#f7f7fb',100:'#efeff7',200:'#e3e3ee',300:'#cfcfe0',
+              400:'#a9a9c2',500:'#7d7da1',600:'#595982',700:'#424266',
+              800:'#2e2e4c',900:'#24243d'
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- Chart.js + date adapter -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+
+  <style>
+    .card{box-shadow:0 10px 30px rgba(0,0,0,.08)}
+    .glass{backdrop-filter:blur(10px);background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.03))}
+    .dark .glass{background:linear-gradient(180deg,rgba(30,30,46,.8),rgba(30,30,46,.6))}
+    .chart-wrap{height:320px}
+    .mono{font-variant-numeric:tabular-nums}
+  </style>
+</head>
+
+<body class="bg-ink-900 text-white">
+  <div class="max-w-7xl mx-auto px-4 py-8">
+    <header class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
+      <div>
+        <h1 class="text-3xl md:text-4xl font-bold">Raid Performance Analyzer</h1>
+        <p class="text-ink-300">
+          Paste your raw raid logs and get instant insights: cadence, participation, points, and efficiency.
+        </p>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <!-- NEW: Button linking directly to your guild page -->
+        <a
+          href="https://swgoh.gg/g/iGfoy85uQMywECHWLq5FpQ/raid-history/"
+          target="_blank"
+          rel="noopener"
+          class="px-3 py-2 rounded-xl bg-ink-700 hover:bg-ink-600 text-white text-sm font-semibold"
+        >
+          Open Guild on SWGOH.GG
+        </a>
+        
+        <button
+          id="downloadPng"
+          class="hidden md:inline px-3 py-2 rounded-xl bg-ink-800 text-white opacity-80 hover:opacity-100 text-sm"
+        >
+          Download Charts (PNG)
+        </button>
+      </div>
+    </header>
+
+    <section class="card glass rounded-2xl p-4 md:p-6 mb-8">
+      <div class="flex items-start justify-between gap-4">
+        <label for="raw" class="font-semibold text-lg">Paste data here</label>
+        <div class="text-sm text-ink-300">
+          We read <span class="font-semibold">Points</span>,
+          <span class="font-semibold">Participants</span>,
+          <span class="font-semibold">Date (YYYY-MM-DD)</span> from each line.
+        </div>
+      </div>
+
+      <textarea
+        id="raw"
+        class="mt-3 w-full h-48 rounded-xl border border-ink-700 bg-ink-800/60 p-3 mono"
+        spellcheck="false"
+      >win	Order 66	19.8M	29	2025-11-21
+win	Order 66	18.2M	27	2025-11-12
+win	Order 66	15.7M	22	2025-11-03
+win	Order 66	16.3M	24	2025-10-24
+win	Order 66	16.4M	24	2025-10-14
+win	Order 66	14.9M	27	2025-10-04
+win	Order 66	13.1M	25	2025-09-24
+win	Order 66	13.2M	26	2025-09-15
+win	Order 66	10.7M	24	2025-09-06</textarea>
+
+      <div class="flex flex-col sm:flex-row items-stretch gap-3 mt-4">
+        <button id="analyze" class="px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">
+          Analyze
+        </button>
+        <button
+          id="clear"
+          class="px-4 py-3 rounded-xl bg-ink-700 hover:bg-ink-600 text-white"
+        >
+          Clear
+        </button>
+        <div class="text-sm text-ink-300 sm:ml-auto">
+          Expected order per row: <span class="mono">… Points Participants YYYY-MM-DD</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="summary" class="grid md:grid-cols-4 gap-4 mb-8"></section>
+
+    <section class="grid lg:grid-cols-2 gap-6">
+      <div class="card glass rounded-2xl p-4 md:p-6">
+        <h2 class="text-xl font-semibold">Participation Trend</h2>
+        <div class="text-sm text-ink-300 mb-3">Number of raiders each run</div>
+        <div class="chart-wrap"><canvas id="chartParticipants"></canvas></div>
+      </div>
+
+      <div class="card glass rounded-2xl p-4 md:p-6">
+        <h2 class="text-xl font-semibold">Total Points</h2>
+        <div class="text-sm text-ink-300 mb-3">Overall points per raid</div>
+        <div class="chart-wrap"><canvas id="chartPoints"></canvas></div>
+      </div>
+
+      <div class="card glass rounded-2xl p-4 md:p-6">
+        <h2 class="text-xl font-semibold">Points per Participant</h2>
+        <div class="text-sm text-ink-300 mb-3">Efficiency</div>
+        <div class="chart-wrap"><canvas id="chartRatio"></canvas></div>
+      </div>
+
+      <div class="card glass rounded-2xl p-4 md:p-6">
+        <h2 class="text-xl font-semibold">Time Between Raids (days)</h2>
+        <div class="text-sm text-ink-300 mb-3">Cadence</div>
+        <div class="chart-wrap"><canvas id="chartGaps"></canvas></div>
+      </div>
+
+      <div class="card glass rounded-2xl p-4 md:p-6 lg:col-span-2">
+        <h2 class="text-xl font-semibold">Parsed Data</h2>
+        <div class="overflow-x-auto mt-3">
+          <table id="dataTable" class="min-w-full text-sm">
+            <thead>
+              <tr class="text-left border-b border-ink-700">
+                <th class="py-2 pr-4">Date</th>
+                <th class="py-2 pr-4">Participants</th>
+                <th class="py-2 pr-4">Points</th>
+                <th class="py-2 pr-4">Pts / Part.</th>
+                <th class="py-2 pr-4">Days since prev.</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    function $(sel){ return document.querySelector(sel); }
+
+    var ctx = { participants:null, points:null, ratio:null, gaps:null };
+
+    function parseNumberWithSuffix(val){
+      if (typeof val !== 'string') return Number(val) || 0;
+      var cleaned = val.replace(/,/g,'').trim();
+      var m = cleaned.match(/^([\d.]+)\s*([KMB]?)$/i);
+      if (!m) return Number(cleaned) || 0;
+      var num = parseFloat(m[1]);
+      var suf = (m[2]||'').toUpperCase();
+      var mult = (suf==='B')?1e9:(suf==='M')?1e6:(suf==='K')?1e3:1;
+      return num*mult;
+    }
+
+    function formatCompact(n){
+      if (!isFinite(n)) return '-';
+      var a = Math.abs(n);
+      if (a>=1e9) return (n/1e9).toFixed(2).replace(/\.00$/,'')+'B';
+      if (a>=1e6) return (n/1e6).toFixed(2).replace(/\.00$/,'')+'M';
+      if (a>=1e3) return (n/1e3).toFixed(2).replace(/\.00$/,'')+'K';
+      return String(Math.round(n));
+    }
+
+    function parseRows(raw){
+      var lines = raw.split(/\r?\n/).map(function(l){return l.trim();}).filter(Boolean);
+      var rows=[];
+      for (var i=0;i<lines.length;i++){
+        var parts = lines[i].split(/[\t ]+/).filter(Boolean);
+        if (parts.length<3) continue;
+        var dateStr = parts[parts.length-1];
+        var participantsStr = parts[parts.length-2];
+        var pointsStr = parts[parts.length-3];
+        var date = new Date(dateStr);
+        var participants = parseInt(participantsStr,10);
+        var points = parseNumberWithSuffix(pointsStr);
+        if (!isFinite(points) || !isFinite(participants) || isNaN(date.getTime())) continue;
+        rows.push({date:date,participants:participants,points:points});
+      }
+      rows.sort(function(a,b){return a.date-b.date;});
+      for (var j=0;j<rows.length;j++){
+        rows[j].ratio = rows[j].participants? rows[j].points/rows[j].participants : 0;
+        if (j===0) rows[j].gapDays=null;
+        else {
+          var diff = rows[j].date - rows[j-1].date;
+          rows[j].gapDays = Math.round(diff/(1000*60*60*24));
+        }
+      }
+      return rows;
+    }
+
+    function kpiCard(title,value,sub){
+      var div = document.createElement('div');
+      div.className='card glass rounded-2xl p-4 md:p-6 flex flex-col gap-1';
+      div.innerHTML =
+        '<div class="text-sm text-ink-300">'+title+'</div>'+
+        '<div class="text-2xl font-bold mono">'+value+'</div>'+
+        (sub?'<div class="text-xs text-ink-400">'+sub+'</div>':'');
+      return div;
+    }
+
+    function renderSummary(rows){
+      var wrap = $('#summary');
+      wrap.innerHTML='';
+      if (!rows.length) return;
+      var last = rows[rows.length-1];
+      var total = rows.reduce(function(a,r){return a+r.points;},0);
+      var avgP = rows.reduce(function(a,r){return a+r.participants;},0)/rows.length;
+      var gaps = rows.map(function(r){return r.gapDays;}).filter(function(v){return typeof v==='number';});
+      var lastGap = gaps.length? gaps[gaps.length-1]: null;
+      var prevGap = gaps.length>1? gaps[gaps.length-2]: null;
+      var gapDelta = (lastGap!=null && prevGap!=null)? lastGap - prevGap : null;
+      var faster = gapDelta==null? '' : (gapDelta<0? 'faster' : (gapDelta>0? 'slower':'same'));
+
+      wrap.appendChild(kpiCard(
+        'Most Recent Raid',
+        last.date.toISOString().slice(0,10),
+        last.participants+' participants · '+formatCompact(last.points)+' pts'
+      ));
+      wrap.appendChild(kpiCard('Total Points (all runs)', formatCompact(total), ''));
+      wrap.appendChild(kpiCard(
+        'Avg Participants',
+        String(Math.round(avgP)),
+        'Range '+Math.min.apply(null, rows.map(function(r){return r.participants;}))+'–'+
+        Math.max.apply(null, rows.map(function(r){return r.participants;}))
+      ));
+      wrap.appendChild(kpiCard(
+        'Cadence (last gap)',
+        lastGap==null?'—':(lastGap+' days'),
+        gapDelta==null? '' : (Math.abs(gapDelta)+' '+faster+' than prior')
+      ));
+    }
+
+    function destroyChartIfExists(c){ if (c && typeof c.destroy==='function') c.destroy(); }
+
+    function makeLineChart(canvasId,labels,dataset,label,fmt){
+      var el = document.getElementById(canvasId);
+      return new Chart(el,{
+        type:'line',
+        data:{
+          labels:labels,
+          datasets:[{
+            label:label,
+            data:dataset,
+            tension:0.35,
+            borderWidth:2,
+            pointRadius:3,
+            pointHoverRadius:5
+          }]
+        },
+        options:{
+          maintainAspectRatio:false,
+          parsing:false,
+          scales:{
+            x:{type:'time',time:{unit:'day'},grid:{display:false}},
+            y:{
+              ticks:{callback:function(v){return fmt?fmt(v):v;}},
+              beginAtZero:true
+            }
+          },
+          plugins:{
+            legend:{display:false},
+            tooltip:{
+              callbacks:{
+                label:function(c){
+                  var v=c.parsed.y;
+                  return label+': '+(fmt?fmt(v):v);
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function renderTable(rows){
+      var tbody = document.getElementById('tbody');
+      tbody.innerHTML='';
+      rows.forEach(function(r){
+        var tr = document.createElement('tr');
+        tr.className='border-b border-ink-800';
+        tr.innerHTML =
+          '<td class="py-2 pr-4 mono">'+r.date.toISOString().slice(0,10)+'</td>'+
+          '<td class="py-2 pr-4 mono">'+r.participants+'</td>'+
+          '<td class="py-2 pr-4 mono">'+formatCompact(r.points)+'</td>'+
+          '<td class="py-2 pr-4 mono">'+formatCompact(r.ratio)+'</td>'+
+          '<td class="py-2 pr-4 mono">'+(r.gapDays==null?'—':r.gapDays)+'</td>';
+        tbody.appendChild(tr);
+      });
+    }
+
+    function setupDownload(){
+      var btn = document.getElementById('downloadPng');
+      if (!btn) return;
+      btn.classList.remove('hidden');
+      if (btn.getAttribute('data-ready')==='1') return;
+      btn.setAttribute('data-ready','1');
+
+      btn.addEventListener('click',function(ev){
+        ev.preventDefault();
+        var ids=['chartParticipants','chartPoints','chartRatio','chartGaps'];
+        var canvases = ids.map(function(id){return document.getElementById(id);}).filter(function(c){return !!c;});
+        if (!canvases.length) return;
+
+        var padding=40;
+        var dpr=window.devicePixelRatio||1;
+        var width=Math.max.apply(null,canvases.map(function(c){return c.width||c.clientWidth||0;}));
+        var height=canvases.reduce(function(s,c){return s+(c.height||c.clientHeight||0);},0)+padding*(canvases.length-1);
+
+        var out=document.createElement('canvas');
+        out.width=Math.max(1,Math.round(width*dpr));
+        out.height=Math.max(1,Math.round(height*dpr));
+        var g=out.getContext('2d');
+        g.scale(dpr,dpr);
+
+        var bg=getComputedStyle(document.body).backgroundColor||'#000000';
+        g.fillStyle=bg;
+        g.fillRect(0,0,width,height);
+
+        var y=0;
+        canvases.forEach(function(c){
+          var w=c.width||c.clientWidth||0;
+          var h=c.height||c.clientHeight||0;
+          g.drawImage(c,0,y,w,h);
+          y+=h+padding;
+        });
+
+        try{
+          var url=out.toDataURL('image/png');
+          var a=document.createElement('a');
+          a.href=url;
+          a.download='raid-charts.png';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(function(){URL.revokeObjectURL(url);},1000);
+        }catch(e){
+          console.error(e);
+          alert('Export failed. Try a different browser.');
+        }
+      });
+    }
+
+    function analyze(){
+      var raw=$('#raw').value;
+      var rows=parseRows(raw);
+      if(!rows.length){
+        alert('No valid rows found. Ensure each line ends with "points participants YYYY-MM-DD".');
+        return;
+      }
+
+      renderSummary(rows);
+
+      var labels=rows.map(function(r){return r.date;});
+      var participants=rows.map(function(r){return {x:r.date,y:r.participants};});
+      var points=rows.map(function(r){return {x:r.date,y:r.points};});
+      var ratio=rows.map(function(r){return {x:r.date,y:r.ratio};});
+      var gaps=rows
+        .map(function(r){return {x:r.date,y:(r.gapDays==null?null:r.gapDays)};})
+        .filter(function(p){return p.y!=null;});
+
+      destroyChartIfExists(ctx.participants);
+      destroyChartIfExists(ctx.points);
+      destroyChartIfExists(ctx.ratio);
+      destroyChartIfExists(ctx.gaps);
+
+      ctx.participants=makeLineChart('chartParticipants',labels,participants,'Participants',null);
+      ctx.points=makeLineChart('chartPoints',labels,points,'Points',formatCompact);
+      ctx.ratio=makeLineChart('chartRatio',labels,ratio,'Pts / Participant',formatCompact);
+      ctx.gaps=makeLineChart(
+        'chartGaps',
+        gaps.map(function(g){return g.x;}),
+        gaps,
+        'Days between raids',
+        null
+      );
+
+      renderTable(rows);
+      setupDownload();
+    }
+
+    document.getElementById('analyze').addEventListener('click',analyze);
+
+    document.getElementById('clear').addEventListener('click',function(){
+      $('#raw').value='';
+      $('#summary').innerHTML='';
+      $('#tbody').innerHTML='';
+      for (var k in ctx){
+        if(ctx[k] && typeof ctx[k].destroy==='function'){
+          ctx[k].destroy();
+        }
+      }
+      var btn = document.getElementById('downloadPng');
+      btn.classList.add('hidden');
+      btn.removeAttribute('data-ready');
+    });
+    window.addEventListener('load',analyze);
+  </script>
+</body>
+</html>
