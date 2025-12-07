@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Guild Analytics</title>
+  <title>Raid Performance Analyzer</title>
 
-  <!-- Tailwind CSS -->
+  <!-- Tailwind CSS (CDN) -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -33,141 +33,127 @@
     .dark .glass{background:linear-gradient(180deg,rgba(30,30,46,.8),rgba(30,30,46,.6))}
     .chart-wrap{height:320px}
     .mono{font-variant-numeric:tabular-nums}
-
-    .navbtn {
-      padding: 6px 10px;
-      border-radius: 6px;
-      opacity: 0.8;
-    }
-    .navbtn.active {
-      background: rgba(255,255,255,0.12);
-      opacity: 1;
-    }
   </style>
 </head>
 
 <body class="bg-ink-900 text-white">
+  <div class="max-w-7xl mx-auto px-4 py-8">
+    <header class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
+      <div>
+        <h1 class="text-3xl md:text-4xl font-bold">Raid Performance Analyzer</h1>
+        <p class="text-ink-300">
+          Paste your raw raid logs and get instant insights: cadence, participation, points, and efficiency.
+        </p>
+      </div>
 
-  <!-- NAVBAR -->
-  <nav class="bg-ink-800 text-white px-4 py-3 flex gap-4 text-sm font-semibold sticky top-0 z-50">
-    <button data-view="raids" class="navbtn active">Raid Analysis</button>
-    <button data-view="helper" class="navbtn">Raid JSON Helper</button>
-  </nav>
+      <div class="flex items-center gap-2">
+        <!-- NEW: Button linking directly to your guild page -->
+        <a
+          href="https://swgoh.gg/g/iGfoy85uQMywECHWLq5FpQ/raid-history/"
+          target="_blank"
+          rel="noopener"
+          class="px-3 py-2 rounded-xl bg-ink-700 hover:bg-ink-600 text-white text-sm font-semibold"
+        >
+          Open Guild on SWGOH.GG
+        </a>
+        
+        <button
+          id="downloadPng"
+          class="hidden md:inline px-3 py-2 rounded-xl bg-ink-800 text-white opacity-80 hover:opacity-100 text-sm"
+        >
+          Download Charts (PNG)
+        </button>
+      </div>
+    </header>
 
-  <!-- RAID ANALYZER VIEW -->
-  <section id="view-raids">
-    <div class="max-w-7xl mx-auto px-4 py-8">
-      <header class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
-        <div>
-          <h1 class="text-3xl md:text-4xl font-bold">Raid Performance Analyzer</h1>
-          <p class="text-ink-300">
-            Data is loaded from <span class="font-semibold">data/raids.json</span> and visualized for officer review.
-          </p>
+    <section class="card glass rounded-2xl p-4 md:p-6 mb-8">
+      <div class="flex items-start justify-between gap-4">
+        <label for="raw" class="font-semibold text-lg">Paste data here</label>
+        <div class="text-sm text-ink-300">
+          We read <span class="font-semibold">Points</span>,
+          <span class="font-semibold">Participants</span>,
+          <span class="font-semibold">Date (YYYY-MM-DD)</span> from each line.
         </div>
+      </div>
 
-        <div class="flex items-center gap-2">
-          <a
-            href="https://swgoh.gg/g/iGfoy85uQMywECHWLq5FpQ/raid-history/"
-            target="_blank"
-            rel="noopener"
-            class="px-3 py-2 rounded-xl bg-ink-700 hover:bg-ink-600 text-white text-sm font-semibold"
-          >
-            Open Guild on SWGOH.GG
-          </a>
+      <textarea
+        id="raw"
+        class="mt-3 w-full h-48 rounded-xl border border-ink-700 bg-ink-800/60 p-3 mono"
+        spellcheck="false"
+      >win	Order 66	28.8M	32	2025-12-07
+win	Order 66	26M	31	2025-11-29
+win	Order 66	19.8M	29	2025-11-21
+win	Order 66	18.2M	27	2025-11-12
+win	Order 66	15.7M	22	2025-11-03
+win	Order 66	16.3M	24	2025-10-24
+win	Order 66	16.4M	24	2025-10-14
+win	Order 66	14.9M	27	2025-10-04
+win	Order 66	13.1M	25	2025-09-24
+win	Order 66	13.2M	26	2025-09-15
+win	Order 66	10.7M	24	2025-09-06</textarea>
 
-          <button
-            id="downloadPng"
-            class="hidden md:inline px-3 py-2 rounded-xl bg-ink-800 text-white opacity-80 hover:opacity-100 text-sm"
-          >
-            Download Charts (PNG)
-          </button>
+      <div class="flex flex-col sm:flex-row items-stretch gap-3 mt-4">
+        <button id="analyze" class="px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">
+          Analyze
+        </button>
+        <button
+          id="clear"
+          class="px-4 py-3 rounded-xl bg-ink-700 hover:bg-ink-600 text-white"
+        >
+          Clear
+        </button>
+        <div class="text-sm text-ink-300 sm:ml-auto">
+          Expected order per row: <span class="mono">… Points Participants YYYY-MM-DD</span>
         </div>
-      </header>
+      </div>
+    </section>
 
-      <!-- Summary KPIs -->
-      <section id="summary" class="grid md:grid-cols-4 gap-4 mb-8">
-        <div id="summary-loading" class="card glass rounded-2xl p-4 md:p-6 col-span-full text-ink-300 text-sm">
-          Loading raid data…
+    <section id="summary" class="grid md:grid-cols-4 gap-4 mb-8"></section>
+
+    <section class="grid lg:grid-cols-2 gap-6">
+      <div class="card glass rounded-2xl p-4 md:p-6">
+        <h2 class="text-xl font-semibold">Participation Trend</h2>
+        <div class="text-sm text-ink-300 mb-3">Number of raiders each run</div>
+        <div class="chart-wrap"><canvas id="chartParticipants"></canvas></div>
+      </div>
+
+      <div class="card glass rounded-2xl p-4 md:p-6">
+        <h2 class="text-xl font-semibold">Total Points</h2>
+        <div class="text-sm text-ink-300 mb-3">Overall points per raid</div>
+        <div class="chart-wrap"><canvas id="chartPoints"></canvas></div>
+      </div>
+
+      <div class="card glass rounded-2xl p-4 md:p-6">
+        <h2 class="text-xl font-semibold">Points per Participant</h2>
+        <div class="text-sm text-ink-300 mb-3">Efficiency</div>
+        <div class="chart-wrap"><canvas id="chartRatio"></canvas></div>
+      </div>
+
+      <div class="card glass rounded-2xl p-4 md:p-6">
+        <h2 class="text-xl font-semibold">Time Between Raids (days)</h2>
+        <div class="text-sm text-ink-300 mb-3">Cadence</div>
+        <div class="chart-wrap"><canvas id="chartGaps"></canvas></div>
+      </div>
+
+      <div class="card glass rounded-2xl p-4 md:p-6 lg:col-span-2">
+        <h2 class="text-xl font-semibold">Parsed Data</h2>
+        <div class="overflow-x-auto mt-3">
+          <table id="dataTable" class="min-w-full text-sm">
+            <thead>
+              <tr class="text-left border-b border-ink-700">
+                <th class="py-2 pr-4">Date</th>
+                <th class="py-2 pr-4">Participants</th>
+                <th class="py-2 pr-4">Points</th>
+                <th class="py-2 pr-4">Pts / Part.</th>
+                <th class="py-2 pr-4">Days since prev.</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
         </div>
-      </section>
-
-      <!-- Charts + table -->
-      <section class="grid lg:grid-cols-2 gap-6">
-        <div class="card glass rounded-2xl p-4 md:p-6">
-          <h2 class="text-xl font-semibold">Participation Trend</h2>
-          <div class="text-sm text-ink-300 mb-3">Number of raiders per run</div>
-          <div class="chart-wrap"><canvas id="chartParticipants"></canvas></div>
-        </div>
-
-        <div class="card glass rounded-2xl p-4 md:p-6">
-          <h2 class="text-xl font-semibold">Total Points</h2>
-          <div class="text-sm text-ink-300 mb-3">Overall points per raid</div>
-          <div class="chart-wrap"><canvas id="chartPoints"></canvas></div>
-        </div>
-
-        <div class="card glass rounded-2xl p-4 md:p-6">
-          <h2 class="text-xl font-semibold">Points per Participant</h2>
-          <div class="text-sm text-ink-300 mb-3">Efficiency</div>
-          <div class="chart-wrap"><canvas id="chartRatio"></canvas></div>
-        </div>
-
-        <div class="card glass rounded-2xl p-4 md:p-6">
-          <h2 class="text-xl font-semibold">Time Between Raids (days)</h2>
-          <div class="text-sm text-ink-300 mb-3">Cadence</div>
-          <div class="chart-wrap"><canvas id="chartGaps"></canvas></div>
-        </div>
-
-        <div class="card glass rounded-2xl p-4 md:p-6 lg:col-span-2">
-          <h2 class="text-xl font-semibold">Parsed Raids</h2>
-          <div class="overflow-x-auto mt-3">
-            <table class="min-w-full text-sm">
-              <thead>
-                <tr class="text-left border-b border-ink-700">
-                  <th class="py-2 pr-4">Date</th>
-                  <th class="py-2 pr-4">Participants</th>
-                  <th class="py-2 pr-4">Points</th>
-                  <th class="py-2 pr-4">Pts / Part.</th>
-                  <th class="py-2 pr-4">Days since prev.</th>
-                </tr>
-              </thead>
-              <tbody id="tbody"></tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-    </div>
-  </section>
-
-  <!-- RAID JSON HELPER VIEW -->
-  <section id="view-helper" class="hidden">
-    <div class="max-w-4xl mx-auto px-4 py-8">
-      <h2 class="text-2xl font-bold mb-4">Raid JSON Helper</h2>
-      <p class="text-ink-300 mb-4 text-sm">
-        Paste raid rows below (same format you copy from SWGOH.GG: each line ending with
-        <span class="mono">POINTS PARTICIPANTS YYYY-MM-DD</span>). This tool converts them into
-        the JSON format used by <code>data/raids.json</code>.
-      </p>
-
-      <textarea id="helper-raw"
-        class="w-full h-48 rounded-xl bg-ink-800 border border-ink-600 p-3 mono"
-        placeholder="Example:
-win Order 66 19.8M 29 2025-11-21
-win Order 66 18.2M 27 2025-11-12
-..."></textarea>
-
-      <button id="helper-convert"
-        class="mt-4 px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">
-        Convert to JSON
-      </button>
-
-      <h3 class="text-xl font-semibold mt-6 mb-2">Output</h3>
-      <p class="text-ink-300 mb-2 text-xs">
-        Copy the <code>"raids": [...]</code> block (or entire object) into <code>data/raids.json</code> in the repo.
-      </p>
-      <pre id="helper-out"
-        class="bg-ink-900 border border-ink-700 p-4 rounded-xl text-xs overflow-auto mono"></pre>
-    </div>
-  </section>
+      </div>
+    </section>
+  </div>
 
   <script>
     function $(sel){ return document.querySelector(sel); }
@@ -192,6 +178,33 @@ win Order 66 18.2M 27 2025-11-12
       if (a>=1e6) return (n/1e6).toFixed(2).replace(/\.00$/,'')+'M';
       if (a>=1e3) return (n/1e3).toFixed(2).replace(/\.00$/,'')+'K';
       return String(Math.round(n));
+    }
+
+    function parseRows(raw){
+      var lines = raw.split(/\r?\n/).map(function(l){return l.trim();}).filter(Boolean);
+      var rows=[];
+      for (var i=0;i<lines.length;i++){
+        var parts = lines[i].split(/[\t ]+/).filter(Boolean);
+        if (parts.length<3) continue;
+        var dateStr = parts[parts.length-1];
+        var participantsStr = parts[parts.length-2];
+        var pointsStr = parts[parts.length-3];
+        var date = new Date(dateStr);
+        var participants = parseInt(participantsStr,10);
+        var points = parseNumberWithSuffix(pointsStr);
+        if (!isFinite(points) || !isFinite(participants) || isNaN(date.getTime())) continue;
+        rows.push({date:date,participants:participants,points:points});
+      }
+      rows.sort(function(a,b){return a.date-b.date;});
+      for (var j=0;j<rows.length;j++){
+        rows[j].ratio = rows[j].participants? rows[j].points/rows[j].participants : 0;
+        if (j===0) rows[j].gapDays=null;
+        else {
+          var diff = rows[j].date - rows[j-1].date;
+          rows[j].gapDays = Math.round(diff/(1000*60*60*24));
+        }
+      }
+      return rows;
     }
 
     function kpiCard(title,value,sub){
@@ -304,7 +317,7 @@ win Order 66 18.2M 27 2025-11-12
       btn.addEventListener('click',function(ev){
         ev.preventDefault();
         var ids=['chartParticipants','chartPoints','chartRatio','chartGaps'];
-        var canvases = ids.map(function(id){return document.getElementById(id);}).filter(Boolean);
+        var canvases = ids.map(function(id){return document.getElementById(id);}).filter(function(c){return !!c;});
         if (!canvases.length) return;
 
         var padding=40;
@@ -346,30 +359,12 @@ win Order 66 18.2M 27 2025-11-12
       });
     }
 
-    function analyzeRaids(raidArray){
-      // raidArray: [{date, points, participants}]
-      var rows = raidArray.map(function(r){
-        var d = new Date(r.date);
-        var pts = parseNumberWithSuffix(String(r.points));
-        var p = Number(r.participants);
-        return { date:d, participants:p, points:pts };
-      }).filter(function(r){
-        return isFinite(r.points) && isFinite(r.participants) && !isNaN(r.date.getTime());
-      }).sort(function(a,b){return a.date-b.date;});
-
-      if (!rows.length){
-        $('#summary').innerHTML =
-          '<div class="card glass rounded-2xl p-4 md:p-6 col-span-full text-ink-300 text-sm">No valid raid rows found in raids.json.</div>';
+    function analyze(){
+      var raw=$('#raw').value;
+      var rows=parseRows(raw);
+      if(!rows.length){
+        alert('No valid rows found. Ensure each line ends with "points participants YYYY-MM-DD".');
         return;
-      }
-
-      for (var i=0;i<rows.length;i++){
-        rows[i].ratio = rows[i].participants ? rows[i].points/rows[i].participants : 0;
-        if (i===0) rows[i].gapDays = null;
-        else {
-          var diff = rows[i].date - rows[i-1].date;
-          rows[i].gapDays = Math.round(diff/(1000*60*60*24));
-        }
       }
 
       renderSummary(rows);
@@ -387,10 +382,10 @@ win Order 66 18.2M 27 2025-11-12
       destroyChartIfExists(ctx.ratio);
       destroyChartIfExists(ctx.gaps);
 
-      ctx.participants = makeLineChart('chartParticipants',labels,participants,'Participants',null);
-      ctx.points        = makeLineChart('chartPoints',labels,points,'Points',formatCompact);
-      ctx.ratio         = makeLineChart('chartRatio',labels,ratio,'Pts / Participant',formatCompact);
-      ctx.gaps          = makeLineChart(
+      ctx.participants=makeLineChart('chartParticipants',labels,participants,'Participants',null);
+      ctx.points=makeLineChart('chartPoints',labels,points,'Points',formatCompact);
+      ctx.ratio=makeLineChart('chartRatio',labels,ratio,'Pts / Participant',formatCompact);
+      ctx.gaps=makeLineChart(
         'chartGaps',
         gaps.map(function(g){return g.x;}),
         gaps,
@@ -402,84 +397,24 @@ win Order 66 18.2M 27 2025-11-12
       setupDownload();
     }
 
-    async function loadRaids(){
-      try{
-        var res = await fetch('./data/raids.json');
-        if (!res.ok) throw new Error('HTTP '+res.status);
-        var json = await res.json();
-        var raids = Array.isArray(json) ? json : json.raids;
-        if (!raids || !raids.length) throw new Error('Empty raids array');
-        analyzeRaids(raids);
-      }catch(e){
-        console.error(e);
-        $('#summary').innerHTML =
-          '<div class="card glass rounded-2xl p-4 md:p-6 col-span-full text-red-300 text-sm">Error loading raids.json: '+
-          e.message+'</div>';
+    document.getElementById('analyze').addEventListener('click',analyze);
+
+    document.getElementById('clear').addEventListener('click',function(){
+      $('#raw').value='';
+      $('#summary').innerHTML='';
+      $('#tbody').innerHTML='';
+      for (var k in ctx){
+        if(ctx[k] && typeof ctx[k].destroy==='function'){
+          ctx[k].destroy();
+        }
       }
-    }
-
-    // --- Internal nav (Raid Analysis / Helper) ---
-    document.querySelectorAll("button[data-view]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const view = btn.dataset.view;
-
-        document.querySelectorAll(".navbtn").forEach(b =>
-          b.classList.toggle("active", b === btn)
-        );
-
-        document.querySelectorAll("section[id^='view-']").forEach(sec => {
-          sec.classList.toggle("hidden", sec.id !== "view-" + view);
-        });
-      });
+      var btn = document.getElementById('downloadPng');
+      btn.classList.add('hidden');
+      btn.removeAttribute('data-ready');
     });
-
-    // --- Helper: paste → JSON ---
-    function helperParseSuffix(val) {
-      var cleaned = String(val).replace(/,/g,'').trim();
-      var m = cleaned.match(/^([\d.]+)\s*([KMB]?)$/i);
-      if (!m) return Number(cleaned) || 0;
-      var num = parseFloat(m[1]);
-      var suf = (m[2]||'').toUpperCase();
-      var mult = suf==='B' ? 1e9 : suf==='M' ? 1e6 : suf==='K' ? 1e3 : 1;
-      return num * mult;
-    }
-
-    function helperParse(raw) {
-      var lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-      var rows = [];
-
-      for (let line of lines) {
-        let parts = line.split(/[\t ]+/).filter(Boolean);
-        if (parts.length < 3) continue;
-
-        let dateStr = parts[parts.length - 1];
-        let participantsStr = parts[parts.length - 2];
-        let pointsStr = parts[parts.length - 3];
-
-        let date = new Date(dateStr);
-        let participants = parseInt(participantsStr, 10);
-        let points = helperParseSuffix(pointsStr);
-
-        if (!isFinite(points) || !isFinite(participants) || isNaN(date.getTime())) continue;
-
-        rows.push({
-          date: date.toISOString().slice(0, 10),
-          points: points,
-          participants: participants
-        });
-      }
-
-      return rows;
-    }
-
-    document.getElementById("helper-convert").addEventListener("click", () => {
-      const raw = document.getElementById("helper-raw").value;
-      const rows = helperParse(raw);
-      const json = JSON.stringify({ raids: rows }, null, 2);
-      document.getElementById("helper-out").textContent = json;
-    });
-
-    window.addEventListener('load', loadRaids);
+    window.addEventListener('load',analyze);
   </script>
 </body>
 </html>
+
+
